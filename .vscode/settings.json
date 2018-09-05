@@ -26,6 +26,8 @@
         "initializer_list": "cpp",
         "iterator": "cpp",
         "list": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "typeinfo": "cpp",
+        "queue": "cpp"
     }
 }

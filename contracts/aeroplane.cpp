@@ -4,29 +4,38 @@
 #include <cstdio>
 
  // @abi action
-void aeroplane::newgame(const account_name msgsender, const uint64_t roundid, const string[] players) {
+void aeroplane::newgame(const account_name msgsender, const uint64_t roundid, string playerstr) {
     //require_auth( msgsender );
     auto round = rounds.find(roundid);
-    eosio_assert(round == round.end(), "round already created" ); 
+    eosio_assert(round == rounds.end(), "round already created" ); 
 
     //init accounts.
-    account_name accounts[players.length] = {};
-    for(int i=0;i<players.length;i++){
-        accounts[i] = eosio::chain::string_to_name(players[i]);
+    // char playerchar[playerstr.length()];
+    // for(int i=0;i<playerstr.length();i++){
+    //     playerchar[i] = playerstr[i];
+    // }
+    // string players[] = strtok(playerchar," ");
+    string* players = new string[1]();
+    players[0] = playerstr;
+
+    account_name* accounts = new account_name[sizeof(players)]();
+    for(int i=0;i<sizeof(players);i++){
+        string k = players[i];
+        accounts[i] = eosio::string_to_name(k.c_str());
     }
 
     //init etc arrays.
-    bool prepareds[players.length] = {};
-    for(int i=0;i<players.length;i++){ prepareds[i] = false; }
+    bool* prepareds = new bool[sizeof(players)]();
+    for(int i=0;i<sizeof(players);i++){ prepareds[i] = false; }
 
-    bool poses[players.length] = {};//pos:1001 = [1,1]; 121312 = [121,312]
-    for(int i=0;i<players.length;i++){ poses[i] = 0; }
+    uint64_t* poses = new uint64_t[sizeof(players)]();//pos:1001 = [1,1]; 121312 = [121,312]
+    for(int i=0;i<sizeof(players);i++){ poses[i] = -1; }
 
-    bool winners[players.length] = {};
-    for(int i=0;i<players.length;i++){ winners[i] = 0; }
+    uint64_t* winners = new uint64_t[sizeof(players)]();
+    for(int i=0;i<sizeof(players);i++){ winners[i] = -1; }
 
     //insert.
-    round.emplace(_self, [&](auto &round) {
+    rounds.emplace(_self, [&](auto &round) {
         round.roundid = roundid;
         round.accounts = accounts;
         round.prepareds = prepareds;
@@ -41,27 +50,27 @@ void aeroplane::newgame(const account_name msgsender, const uint64_t roundid, co
  // @abi action
 void aeroplane::prepare(const account_name msgsender, const uint64_t roundid) {
     auto round = rounds.find(roundid);
-    eosio_assert( round != round.end(), "no round" );
-    eosio_assert( round.is_started != true, "is started" );
-    for(int i=0;i<round.prepareds.length;i++){
-        if (round.accounts[i] == msgsender){
+    eosio_assert( round != rounds.end(), "no round" );
+    eosio_assert( round->is_started != true, "is started" );
+    for(int i=0;i<sizeof(round->prepareds);i++){
+        if (round->accounts[i] == msgsender){
             break;
         }
-        eosio_assert(i == round.accounts.length - 1, "no player" ); 
+        eosio_assert(i == sizeof(round->accounts) - 1, "no player" ); 
     }
-    round.emplace(_self, [&](auto &round) {
-        for(int i=0;i<round.accounts.length;i++){
+    rounds.emplace(_self, [&](auto &round) {
+        for(int i=0;i<sizeof(round.accounts);i++){
             if (round.accounts[i] == msgsender){
                 round.prepareds[i] = true;
                 break;
             }
         }
     });
-    for(int i=0;i<round.prepareds.length;i++){
-        if (round.prepared[i] == false){
+    for(int i=0;i<sizeof(round->prepareds);i++){
+        if (round->prepareds[i] == false){
             break;
         }
-        if(i == round.accounts.length - 1) startgame(msgsender, roundid);
+        if(i == sizeof(round->accounts) - 1) startgame(msgsender, roundid);
     }
 }
 
@@ -70,33 +79,43 @@ void aeroplane::step(const account_name msgsender,
                     const uint64_t roundid, 
                     const uint64_t step_index) {
     auto round = rounds.find(roundid);
-    eosio_assert( round != round.end(), "no round" );
-    eosio_assert( round.is_started, "not started" );
+    eosio_assert( round != rounds.end(), "no round" );
+    eosio_assert( round->is_started, "not started" );
+    eosio_assert( step_index == round->step_index, "wrong step" );
     // judge action player
-    auto step_index = round.step_index;
-    uint64_t index = step_index % round.prepareds.length;
-    eosio_assert( round.account[index] == msgsender, "wrong player" );
+    uint64_t index = step_index % sizeof(round->prepareds);
+    eosio_assert( round->accounts[index] == msgsender, "wrong player" );
 
-    uint64_t random6 = random6();
+    auto random = random6();
 
     // do something..
     refreshround(msgsender, roundid);
 
-    if (random6 == 6) round.winners.push(index);
-
-    if(round.winners.length == round.prepareds.length){
-        endgame(msgsender, roundid);
-        return;
-    } 
-    // calculate next player;
-    for (int i=0;i<round.players.length;i++){ // == while(true)
-        index = index + 1 % round.prepareds.length;
-        step_index = step_index + 1;
-        for(int i=0;i<round.winners.length;i++){
-            if(index == round.winners[i]) continue;
+    if (random == 6){
+        uint64_t* winners = round->winners;
+        for(int i=0;i<sizeof(winners);i++){ 
+            if(winners[i] == -1){
+                winners[i] = index;
+                break;
+            }
         }
-        round.emplace(_self, [&](auto &round) {
-            round.step_index = step_index;
+        if(sizeof(winners) == sizeof(round->prepareds)){
+            endgame(msgsender, roundid);
+            return;
+        } 
+        rounds.emplace(_self, [&](auto &round) {
+            round.winners = winners;
+        });
+    }
+    // calculate next player;
+    for (int i=0;i<sizeof(round->accounts);i++){ // == while(true)
+        index = index + 1 % sizeof(round->prepareds);
+        auto step_next = step_index + 1;
+        for(int i=0;i<sizeof(round->winners);i++){
+            if(index == round->winners[i]) continue;
+        }
+        rounds.emplace(_self, [&](auto &round) {
+            round.step_index = step_next;
         });
         break;
     }
@@ -105,9 +124,9 @@ void aeroplane::step(const account_name msgsender,
  // @abi action
 void aeroplane::endgame(const account_name msgsender, const uint64_t roundid) {
     auto round = rounds.find(roundid);
-    eosio_assert( round != round.end(), "no round" );
-    eosio_assert( round.is_started, "not started" );
-    round.emplace(_self, [&](auto &round) {
+    eosio_assert( round != rounds.end(), "no round" );
+    eosio_assert( round->is_started, "not started" );
+    rounds.emplace(_self, [&](auto &round) {
         round.is_ended = true;
     });
     // solve winner rewards..
@@ -119,9 +138,10 @@ void aeroplane::refreshround(const account_name msgsender, const uint64_t roundi
 }
 
  // @abi action
-void aeroplane::random6(){
+uint64_t aeroplane::random6(){
     //return random 1-6..
-    return 6;
+    uint64_t r = 6;
+    return r;
 }
 
  // @abi action
@@ -130,31 +150,31 @@ void aeroplane::startgame(const account_name msgsender, const uint64_t roundid){
 
 }
 
-#define MY_EOSIO_ABI(TYPE, MEMBERS)                                                                                  \
-    extern "C"                                                                                                       \
-    {                                                                                                                \
-        void apply(uint64_t receiver, uint64_t code, uint64_t action)                                                \
-        {                                                                                                            \
-                                                                                                                     \
-            auto self = receiver;                                                                                    \
-            if (action == N(onerror))                                                                                \
-            {                                                                                                        \
-                eosio_assert(code == N(eosio), "onerror action's are only valid from the \"eosio\" system account"); \
-            }                                                                                                        \
-            if (code == TOKEN_CONTRACT && action == N(transfer)) {                                                   \
-                action = N(onTransfer);                                                                              \
-            }                                                                                                        \
-            if ((code == TOKEN_CONTRACT && action == N(onTransfer)) || code == self && action != N(onTransfer)) {                               \
-                TYPE thiscontract(self);                                                                             \
-                switch (action)                                                                                      \
-                {                                                                                                    \
-                    EOSIO_API(TYPE, MEMBERS)                                                                         \
-                }                                                                                                     \
-            }                                                                                                        \
-        }                                                                                                            \
-    }
+// #define MY_EOSIO_ABI(TYPE, MEMBERS)                                                                                  \
+//     extern "C"                                                                                                       \
+//     {                                                                                                                \
+//         void apply(uint64_t receiver, uint64_t code, uint64_t action)                                                \
+//         {                                                                                                            \
+//                                                                                                                      \
+//             auto self = receiver;                                                                                    \
+//             if (action == N(onerror))                                                                                \
+//             {                                                                                                        \
+//                 eosio_assert(code == N(eosio), "onerror action's are only valid from the \"eosio\" system account"); \
+//             }                                                                                                        \
+//             if (code == TOKEN_CONTRACT && action == N(transfer)) {                                                   \
+//                 action = N(onTransfer);                                                                              \
+//             }                                                                                                        \
+//             if ((code == TOKEN_CONTRACT && action == N(onTransfer)) || code == self && action != N(onTransfer)) {                               \
+//                 TYPE thiscontract(self);                                                                             \
+//                 switch (action)                                                                                      \
+//                 {                                                                                                    \
+//                     EOSIO_API(TYPE, MEMBERS)                                                                         \
+//                 }                                                                                                     \
+//             }                                                                                                        \
+//         }                                                                                                            \
+//     }
 // generate .wasm and .wast file
-MY_EOSIO_ABI(aeroplane, (newgame)(prepare)(step)(endgame)(refresh))
+// MY_EOSIO_ABI(aeroplane, (newgame)(prepare)(step)(endgame)(refresh))
 
 // generate .abi file
-// EOSIO_ABI(happyeosslot, (transfer)(init)(sell)(reveal)(test))
+EOSIO_ABI(aeroplane, (newgame)(prepare)(step)(endgame)(refreshround))
