@@ -60,7 +60,7 @@ class aeroplane : public contract{
             bool is_started;
             bool is_ended;
             uint64_t primary_key() const { return roundid; }
-            EOSLIB_SERIALIZE(round, (roundid)(accounts)(prepareds)(poses)(step_index)(winners)(is_started)(is_ended))
+            EOSLIB_SERIALIZE(round, (roundid)(step_index)(is_started)(is_ended))
         };
         typedef eosio::multi_index<N(round), round> round_index;
         round_index rounds;
