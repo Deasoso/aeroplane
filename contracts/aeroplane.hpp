@@ -9,6 +9,7 @@
 //#include "../eosio.token/eosio.token.hpp"
 #include <cmath>
 #include <string>
+#include <vector>
 
 typedef double real_type;
 
@@ -31,6 +32,7 @@ class aeroplane : public contract{
         void step(const account_name msgsender, const uint64_t roundid, const uint64_t step_index);
         void endgame(const account_name msgsender, const uint64_t roundid);
         void refreshround(const account_name msgsender, const uint64_t roundid);
+        std::vector<std::string> split(const std::string& s, const std::string& delim);
 
     private:
 
@@ -50,11 +52,11 @@ class aeroplane : public contract{
 
         struct round {
             uint64_t roundid;
-            account_name* accounts;
-            bool* prepareds;
-            uint64_t* poses;//pos:1001 = [1,1]; 121312 = [121,312]
+            std::vector<account_name> accounts;
+            std::vector<bool> prepareds;
+            std::vector<uint64_t> poses;//pos:1001 = [1,1]; 121312 = [121,312]
             uint64_t step_index; // -1 to not inited
-            uint64_t* winners; // -1 to not inited
+            std::vector<uint64_t> winners; // -1 to not inited
             bool is_started;
             bool is_ended;
             uint64_t primary_key() const { return roundid; }

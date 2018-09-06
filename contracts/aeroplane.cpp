@@ -15,24 +15,23 @@ void aeroplane::newgame(const account_name msgsender, const uint64_t roundid, st
     //     playerchar[i] = playerstr[i];
     // }
     // string players[] = strtok(playerchar," ");
-    string* players = new string[1]();
-    players[0] = playerstr;
+    std::vector<string> players = split(playerstr," ");
 
-    account_name* accounts = new account_name[sizeof(players)]();
-    for(int i=0;i<sizeof(players);i++){
+    std::vector<account_name> accounts;
+    for(int i=0;i<players.size();i++){
         string k = players[i];
-        accounts[i] = eosio::string_to_name(k.c_str());
+        accounts.push_back(eosio::string_to_name(k.c_str()));
     }
 
     //init etc arrays.
-    bool* prepareds = new bool[sizeof(players)]();
-    for(int i=0;i<sizeof(players);i++){ prepareds[i] = false; }
+    std::vector<bool> prepareds;
+    for(int i=0;i<players.size();i++){ prepareds.push_back(false); }
 
-    uint64_t* poses = new uint64_t[sizeof(players)]();//pos:1001 = [1,1]; 121312 = [121,312]
-    for(int i=0;i<sizeof(players);i++){ poses[i] = -1; }
+    std::vector<uint64_t> poses;//pos:1001 = [1,1]; 121312 = [121,312]
+    for(int i=0;i<players.size();i++){ poses.push_back(-1); }
 
-    uint64_t* winners = new uint64_t[sizeof(players)]();
-    for(int i=0;i<sizeof(players);i++){ winners[i] = -1; }
+    std::vector<uint64_t> winners;
+    for(int i=0;i<players.size();i++){ winners.push_back(-1); }
 
     //insert.
     rounds.emplace(_self, [&](auto &round) {
@@ -52,25 +51,25 @@ void aeroplane::prepare(const account_name msgsender, const uint64_t roundid) {
     auto round = rounds.find(roundid);
     eosio_assert( round != rounds.end(), "no round" );
     eosio_assert( round->is_started != true, "is started" );
-    for(int i=0;i<sizeof(round->prepareds);i++){
+    for(int i=0;i<round->prepareds.size();i++){
         if (round->accounts[i] == msgsender){
             break;
         }
-        eosio_assert(i == sizeof(round->accounts) - 1, "no player" ); 
+        eosio_assert(i == round->accounts.size() - 1, "no player" ); 
     }
     rounds.emplace(_self, [&](auto &round) {
-        for(int i=0;i<sizeof(round.accounts);i++){
+        for(int i=0;i<round.accounts.size();i++){
             if (round.accounts[i] == msgsender){
                 round.prepareds[i] = true;
                 break;
             }
         }
     });
-    for(int i=0;i<sizeof(round->prepareds);i++){
+    for(int i=0;i<round->prepareds.size();i++){
         if (round->prepareds[i] == false){
             break;
         }
-        if(i == sizeof(round->accounts) - 1) startgame(msgsender, roundid);
+        if(i == round->accounts.size() - 1) startgame(msgsender, roundid);
     }
 }
 
@@ -83,7 +82,7 @@ void aeroplane::step(const account_name msgsender,
     eosio_assert( round->is_started, "not started" );
     eosio_assert( step_index == round->step_index, "wrong step" );
     // judge action player
-    uint64_t index = step_index % sizeof(round->prepareds);
+    uint64_t index = step_index % round->prepareds.size();
     eosio_assert( round->accounts[index] == msgsender, "wrong player" );
 
     auto random = random6();
@@ -92,14 +91,14 @@ void aeroplane::step(const account_name msgsender,
     refreshround(msgsender, roundid);
 
     if (random == 6){
-        uint64_t* winners = round->winners;
-        for(int i=0;i<sizeof(winners);i++){ 
+        std::vector<uint64_t> winners = round->winners;
+        for(int i=0;i<winners.size();i++){ 
             if(winners[i] == -1){
                 winners[i] = index;
                 break;
             }
         }
-        if(sizeof(winners) == sizeof(round->prepareds)){
+        if(winners.size() == round->prepareds.size()){
             endgame(msgsender, roundid);
             return;
         } 
@@ -108,10 +107,10 @@ void aeroplane::step(const account_name msgsender,
         });
     }
     // calculate next player;
-    for (int i=0;i<sizeof(round->accounts);i++){ // == while(true)
-        index = index + 1 % sizeof(round->prepareds);
+    for (int i=0;i<round->accounts.size();i++){ // == while(true)
+        index = index + 1 % round->prepareds.size();
         auto step_next = step_index + 1;
-        for(int i=0;i<sizeof(round->winners);i++){
+        for(int i=0;i<round->winners.size();i++){
             if(index == round->winners[i]) continue;
         }
         rounds.emplace(_self, [&](auto &round) {
@@ -148,6 +147,27 @@ uint64_t aeroplane::random6(){
 void aeroplane::startgame(const account_name msgsender, const uint64_t roundid){
     //refresh map..
 
+}
+
+std::vector<std::string> aeroplane::split(const std::string& s, const std::string& delim)
+{
+    std::vector<std::string> elems;
+    size_t pos = 0;
+    size_t len = s.length();
+    size_t delim_len = delim.length();
+    if (delim_len == 0) return elems;
+    while (pos < len)
+    {
+        int find_pos = s.find(delim, pos);
+        if (find_pos < 0)
+        {
+            elems.push_back(s.substr(pos, len - pos));
+            break;
+        }
+        elems.push_back(s.substr(pos, find_pos - pos));
+        pos = find_pos + delim_len;
+    }
+    return elems;
 }
 
 // #define MY_EOSIO_ABI(TYPE, MEMBERS)                                                                                  \

@@ -28,6 +28,14 @@
         "list": "cpp",
         "valarray": "cpp",
         "typeinfo": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "__config": "cpp",
+        "__nullptr": "cpp",
+        "cstddef": "cpp",
+        "exception": "cpp",
+        "new": "cpp",
+        "stdexcept": "cpp",
+        "cctype": "cpp",
+        "cstdlib": "cpp"
     }
 }
